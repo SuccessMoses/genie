@@ -134,3 +134,15 @@ term = (Left <$> aExpr) <|> (Right <$> bExpr)
 -- so haskell does not complain
 main :: IO ()
 main = return ()
+
+
+data Nat' = Zero' | Succ' Nat'
+
+add' :: Nat' -> Nat' -> Nat'
+add' m Zero' = m
+add' m (Succ' n) = add' (Succ' m) n
+
+sub' :: Nat' -> Nat' -> Nat'
+sub' m Zero' = m
+sub' Zero' _ = Zero'
+sub' (Succ' m) (Succ' n) = sub' m n
