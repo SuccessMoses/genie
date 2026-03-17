@@ -6,7 +6,6 @@ import           Text.Megaparsec            ((<|>))
 import qualified Text.Megaparsec            as Parsec
 import qualified Text.Megaparsec.Char       as CharParser
 import qualified Text.Megaparsec.Char.Lexer as Lexer
-import           Control.Monad.Combinators.Expr
 import qualified Control.Monad.Combinators.Expr as ExprParser
 
 {-
@@ -70,22 +69,53 @@ ifParser = Parsec.try $ do
     _ <- symbol "else"
     IfE b a1 <$> aExpr
 
+-- If statement match greedily, hence `if true then 0 else 2 + 1` is equal to
+-- `if true then 0 else (2 + 1)` instead of `(if true then 0 else 2) + 1`.
+
 aExprTerm :: Parser AExpr
-aExprTerm = 
+aExprTerm =
     aLit
     <|> ifParser
     <|> parens aExpr
 
 aExpr :: Parser AExpr
-aExpr = ExprParser.makeExprParser aExprTerm [[]]
+aExpr = ExprParser.makeExprParser aExprTerm
+    [
+        [
+            -- Higher precedence
+            ExprParser.InfixL (OpEA MulE <$ symbol "*")
+        ],
+        [
+            -- Lower precedence
+            ExprParser.InfixL (OpEA AddE <$ symbol "+"),
+            ExprParser.InfixL (OpEA SubE <$ symbol "-")
+        ]
+    ]
+
+relExpr :: Parser BExpr
+relExpr = do
+    x <- aExpr
+    op <- (LTE <$ symbol "<") <|> (GTE <$ symbol ">")
+    OpER op x <$> aExpr
+
 
 bExpr :: Parser BExpr
-bExpr = ExprParser.makeExprParser bExprTerm [[]]
+bExpr = ExprParser.makeExprParser bExprTerm
+    [
+        [
+            ExprParser.Prefix (Not <$ symbol "not")
+        ],
+        [
+            ExprParser.InfixL (OpEB AndE <$ symbol "and"),
+            ExprParser.InfixL (OpEB OrE <$ symbol "or")
+        ]
+    ]
     where
-        bExprTerm = 
+        bExprTerm =
             TrueE <$ symbol "true"
             <|> FalseE <$ symbol "false"
             <|> parens bExpr
+            <|> relExpr
 
 term :: Parser (Either AExpr BExpr)
 term = (Left <$> aExpr) <|> (Right <$> bExpr)
