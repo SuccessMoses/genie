@@ -69,15 +69,14 @@ executable genie
     -- Other library packages from which modules are imported.
     build-depends:
         base ^>=4.18.3.0,
-        flatparse,
-        template-haskell
+        megaparsec,
+        text,
+        parser-combinators
 
     -- Directories containing source files.
     hs-source-dirs:   app
     
     default-extensions:
-        BlockArguments
-        TemplateHaskell
 
     -- Base language which the package is written in.
     default-language: Haskell2010
