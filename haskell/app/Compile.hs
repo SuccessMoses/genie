@@ -1,7 +1,6 @@
-{- HLINT ignore "Use record patterns" -} -- fix me!!
 module Compile where
 
-type Ident = Int -- this should be positive intgers.
+type Ident = Positive
 
 type PtrOfs = Integer
 
@@ -102,5 +101,8 @@ f m kv = case snd kv of
 ofListOption :: [(Positive, Maybe a)] -> PTree a
 ofListOption = foldl f Leaf
 
--- selProgram :: CMinorProgram -> Either CMinorSelProgram
+progDefMap :: Program f v -> PTree (GlobalDef f v)
+progDefMap p = ofListOption (prog_defs p)
+
+selProgram :: CMinorProgram -> Either CMinorSelProgram
 
