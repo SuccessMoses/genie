@@ -1,8 +1,13 @@
+{- HLINT ignore "Use newtype instead of data" -}
 module Compile where
 
 type Ident = Positive
 
 type PtrOfs = Integer
+
+data Error = Error String
+
+type Res a = Either Error a
 
 data InitData
   = InitInt8 Int |
@@ -104,5 +109,32 @@ ofListOption = foldl f Leaf
 progDefMap :: Program f v -> PTree (GlobalDef f v)
 progDefMap p = ofListOption (prog_defs p)
 
-selProgram :: CMinorProgram -> Either CMinorSelProgram
+transfGlobVar :: Ident -> (Ident -> v -> Res w) -> GlobVar v -> Res (GlobVar w)
+transfGlobVar i transfVar g = do
+    info <- transfVar i (gvar_info g)
+    return $ GlobVar 
+      info 
+      (gvar_init g) 
+      (gvar_readonly g) 
+      (gvar_volatile g)
+
+transfGlobDefs :: [(Ident, Maybe (GlobalDef a v))] -> (Ident -> v -> Res w) -> Res [(Ident, Maybe (GlobalDef b w))]
+transfGlobDefs [] _ = return []
+transfGlobDefs ((i, Nothing) : l) _ = do
+    tl' <- transfGlobDefs l
+    return $ (i, Nothing) : tl'
+transfGlobDefs ((i, Just (Gfun f')) : l) trans = case trans i f' of
+    Left msg -> return msg
+    Right tf -> do
+        tl' <- transfGlobDefs l
+        return $ (i, Just $ Gfun tf) : tl'
+transfGlobDefs ((i, Just (Gvar v)) : l) trans = case trans i v of
+    Left msg -> return msg
+    Right tv -> do
+        tl' <- transfGlobDefs l trans
+        return $ (i, Just $ Gvar tv) : tl'
+
+
+
+-- selProgram :: CMinorProgram -> Either CMinorSelProgram
 
