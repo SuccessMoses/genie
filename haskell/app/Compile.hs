@@ -118,23 +118,43 @@ transfGlobVar i transfVar g = do
       (gvar_readonly g) 
       (gvar_volatile g)
 
-transfGlobDefs :: [(Ident, Maybe (GlobalDef a v))] -> (Ident -> v -> Res w) -> Res [(Ident, Maybe (GlobalDef b w))]
-transfGlobDefs [] _ = return []
-transfGlobDefs ((i, Nothing) : l) _ = do
-    tl' <- transfGlobDefs l
+transfGlobDefs :: 
+  [(Ident, Maybe (GlobalDef a v))] ->
+  (Ident -> a -> Res b) ->
+  (Ident -> v -> Res w) -> 
+  Res [(Ident, Maybe (GlobalDef b w))]
+transfGlobDefs [] _ _ = return []
+transfGlobDefs ((i, Nothing) : l) transf transv = do
+    tl' <- transfGlobDefs l transf transv
     return $ (i, Nothing) : tl'
-transfGlobDefs ((i, Just (Gfun f')) : l) trans = case trans i f' of
-    Left msg -> return msg
+transfGlobDefs ((i, Just (Gfun f')) : l) transf transv = case transf i f' of
+    Left msg -> Left msg -- fix me: construct proper error message.
     Right tf -> do
-        tl' <- transfGlobDefs l
+        tl' <- transfGlobDefs l transf transv
         return $ (i, Just $ Gfun tf) : tl'
-transfGlobDefs ((i, Just (Gvar v)) : l) trans = case trans i v of
-    Left msg -> return msg
+transfGlobDefs ((i, Just (Gvar v)) : l) transf transv = case transfGlobVar i transv v of
+    Left msg -> Left msg -- fix me: construct proper error message.
     Right tv -> do
-        tl' <- transfGlobDefs l trans
+        tl' <- transfGlobDefs l transf transv
         return $ (i, Just $ Gvar tv) : tl'
 
+transformProgramPartial :: 
+  Program a v ->
+  (Ident -> a -> Res b) ->
+  (Ident -> v -> Res w) ->
+  Res (Program b w)
+transformProgramPartial p transf transv = do
+    l <- transfGlobDefs (prog_defs p) transf transv
+    return $ Program l (prog_public p) (prog_main p)
 
+myF :: Program a v -> (a -> Res b) -> Res (Program b v)
+myF p transf = transformProgramPartial p (\_ f' -> transf f') (\_ v -> return v) -- fix variable shadowing then fixme!!
 
--- selProgram :: CMinorProgram -> Either CMinorSelProgram
+transfFunDefPartial :: (a -> Res b) -> FunDef a -> Res (FunDef b)
+transfFunDefPartial transf (Internal f') = Internal <$> transf f'
+transfFunDefPartial _ (External f') = return $ External f'
+
+-- selProgram :: CMinorProgram -> Res CMinorSelProgram
+-- selProgram p = myF p
+
 
