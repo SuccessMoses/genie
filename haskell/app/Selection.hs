@@ -1,46 +1,6 @@
-{- HLINT ignore "Use newtype instead of data" -}
-module Compile where
+module Selection where
 
-type Ident = Positive
-
-type PtrOfs = Integer
-
-data Error = Error String
-
-type Res a = Either Error a
-
-data InitData
-  = InitInt8 Int |
-    InitInt16 Int |
-    InitInt32 Int |
-    InitInt64 Int |
-    InitFloat32 Float |
-    InitFloat64 Float |
-    InitSpace Integer |
-    InitAddrof Ident PtrOfs
-
-data GlobVar v = GlobVar
-    {
-        gvar_info :: v,
-        gvar_init :: [InitData],
-        gvar_readonly :: Bool,
-        gvar_volatile :: Bool
-    }
-
-data GlobalDef f v =
-    Gfun f
-    | Gvar (GlobVar v)
-
-data Program f v = Program
-    {
-        prog_defs :: [(Ident, Maybe (GlobalDef f v))],
-        prog_public :: [Ident],
-        prog_main :: Ident
-    }
-
-data ExternalFunction 
-
-data FunDef f = Internal f | External ExternalFunction
+import Program
 
 -------------------------
 -- CMinorSel
@@ -50,14 +10,6 @@ data CMinorSelFunction
 
 type CMinorSelProgram = Program (FunDef CMinorSelFunction) ()
 
---------------------------
--- CMinor
---------------------------
-
-data CMinorFunction
-
-type CMinorProgram = Program (FunDef CMinorFunction) ()
-
 -----------------------------
 -- CMinor --> CMinorSel
 -----------------------------
@@ -65,8 +17,6 @@ type CMinorProgram = Program (FunDef CMinorFunction) ()
 data PTree a
   = Leaf |
     Node (PTree a) (Maybe a) (PTree a)
-
-data Positive = XI Positive | XO Positive | XH
 
 remove :: Positive -> PTree a -> PTree a
 remove i m = case i of
@@ -150,9 +100,11 @@ transformProgramPartial p transf transv = do
 myF :: Program a v -> (a -> Res b) -> Res (Program b v)
 myF p transf = transformProgramPartial p (\_ f' -> transf f') (\_ v -> return v) -- fix variable shadowing then fixme!!
 
-transfFunDefPartial :: (a -> Res b) -> FunDef a -> Res (FunDef b)
+transfFunDefPartial :: (a -> Res b) -> FunDef a -> Res (FunDef b) -- FunDef is a functor
 transfFunDefPartial transf (Internal f') = Internal <$> transf f'
 transfFunDefPartial _ (External f') = return $ External f'
+
+selFunction :: PTree GlobalDef -> HelperFunctions -> CMinorFunction -> CMinorSelFunction
 
 -- selProgram :: CMinorProgram -> Res CMinorSelProgram
 -- selProgram p = myF p
