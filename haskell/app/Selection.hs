@@ -1,6 +1,8 @@
 module Selection where
 
 import Program
+import qualified CMinor
+import CMinorSel
 
 -------------------------
 -- CMinorSel
@@ -11,7 +13,7 @@ data CMinorSelFunction
 type CMinorSelProgram = Program (FunDef CMinorSelFunction) ()
 
 -----------------------------
--- CMinor --> CMinorSel
+-- PTree
 -----------------------------
 
 data PTree a
@@ -59,6 +61,58 @@ ofListOption = foldl f Leaf
 progDefMap :: Program f v -> PTree (GlobalDef f v)
 progDefMap p = ofListOption (prog_defs p)
 
+-----------------------------
+-- CMinor --> CMinorSel
+-----------------------------
+
+condExprOfExpr :: Expr -> CondExpr
+condExprOfExpr (EOp (OCmp c) el) = CECond c el
+condExprOfExpr (ECondition a b c) = CECondition a (condExprOfExpr b) (condExprOfExpr c)
+condExprOfExpr (ELet a b) = CELet a (condExprOfExpr b)
+condExprOfExpr e = CECond (Ccompimm Cne 0) (ECons e ENil)
+
+-- fixme: define `addressing`.
+load :: MemoryChunk -> Expr -> Expr
+load chunk e = ELoad chunk mode args
+  where
+    args = ECons e ENil
+    mode = Aindexed 0
+
+-- fixme: define `addressing`.
+store :: MemoryChunk -> Expr -> Expr -> Stmt
+store chunk e1 = Sstore chunk mode args
+  where
+    args = ECons e1 ENil
+    mode = Aindexed 0
+
+-- fixme: define `longconst`, `addrsymbol` and `addrstack`.
+selConstant :: CMinor.Constant -> Expr
+selConstant (CMinor.OIntConst n) = EOp (OIntConst n) ENil
+selConstant (CMinor.OFloatConst f') = EOp (OFloatConst f') ENil
+selConstant (CMinor.OSingleConst f') = EOp (OSingleConst f') ENil
+selConstant (CMinor.OLongConst n) = EOp (OLongConst n) ENil
+selConstant (CMinor.OAddRSymbol id' ofs) = EOp (OLea (Aglobal id' ofs)) ENil
+selConstant (CMinor.OAddRStack ofs) = EOp (OLea (Ainstack ofs)) ENil
+
+-- selUnOp :: CMinor.UnaryOperation -> Expr -> Expr
+-- selUnOp (CMinor.OCast8Unsigned) e = EOp OCast8Unsigned (ECons e ENil)
+-- selUnOp (CMinor.OCast8Signed) e = EOp OCast8Signed (ECons e ENil)
+-- selUnOp (CMinor.OCast16Unsigned) e = EOp OCast16Unsigned (ECons e ENil)
+-- selUnOp (CMinor.OCast16Signed) e = EOp OCast16Signed (ECons e ENil)
+-- selUnOp (CMinor.ONegInt) e = EOp ONeg (ECons e ENil)
+-- selUnOp (CMinor.ONotInt) e = EOp ONot (ECons e ENil)
+-- selUnOp (CMinor.ONegF) e = EOp ONegf (ECons e ENil)
+-- selUnOp (CMinor.OAbsF) e = EOp OAbsf (ECons e ENil)
+-- selUnOp (CMinor.ONegFs) e = EOp ONegfs (ECons e ENil)
+-- selUnOp (CMinor.OAbsFs) e = EOp OAbsfs (ECons e ENil)
+
+-- selUnOp :: CMinor.UnaryOperation -> Expr -> Expr
+-- selUnOp (CMinor.OCast8Unsigned) = 
+
+-- selStmt :: CMinor.Stmt -> Res CMinorSel.Stmt
+-- selStmt CMinor.Sskip = return CMinorSel.Sskip
+-- selStmt (CMinor.Sassign id e) = return (CMinorSel.Sassign id (sel_expr e))
+
 transfGlobVar :: Ident -> (Ident -> v -> Res w) -> GlobVar v -> Res (GlobVar w)
 transfGlobVar i transfVar g = do
     info <- transfVar i (gvar_info g)
@@ -104,7 +158,9 @@ transfFunDefPartial :: (a -> Res b) -> FunDef a -> Res (FunDef b) -- FunDef is a
 transfFunDefPartial transf (Internal f') = Internal <$> transf f'
 transfFunDefPartial _ (External f') = return $ External f'
 
-selFunction :: PTree GlobalDef -> HelperFunctions -> CMinorFunction -> CMinorSelFunction
+
+
+-- selFunction :: PTree GlobalDef -> HelperFunctions -> CMinorFunction -> CMinorSelFunction
 
 -- selProgram :: CMinorProgram -> Res CMinorSelProgram
 -- selProgram p = myF p

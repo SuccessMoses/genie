@@ -91,3 +91,22 @@ data Program f v = Program
 data ExternalFunction 
 
 data FunDef f = Internal f | External ExternalFunction
+
+data BuiltinArg a
+  = BA a |
+    BAInt Int |
+    BALong Int |
+    BAFloat Float |
+    BASingle Float |
+    BALoadStack MemoryChunk PtrOfs |
+    BAAddrStack PtrOfs |
+    BALoadGlobal MemoryChunk Ident PtrOfs |
+    BAAddrGlobal Ident PtrOfs |
+    BASplitLong (BuiltinArg a) (BuiltinArg a)
+
+data BuiltinRes a
+  = BR a |
+    BRNone |
+    BRSplitLong (BuiltinRes a) (BuiltinRes a)
+
+
