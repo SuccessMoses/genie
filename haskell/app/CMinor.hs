@@ -90,8 +90,6 @@ data BinaryOperation
     Ocmpl Comparison |
     Ocmplu Comparison
 
-
-
 data Expr
   = EVar Ident |
     EConst Constant |
