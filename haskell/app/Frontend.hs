@@ -2,10 +2,10 @@ module Frontend where
 
 import Program (Ident, Positive (XH))
 import qualified CSyntax
-import CSyntax (Typ, Val(..))
-import CLight
-import Control.Monad.Trans.State
-import Control.Monad.Except
+import CSyntax (Typ, Val(..), typeInt32s)
+import CLight ( Expr(..), Statement(SBuiltin, Sskip, SSet, SCall) )
+import Control.Monad.Trans.State ( StateT, get, put )
+import Control.Monad.Except ( MonadError(throwError) )
 
 data Generator = Generator
   {
@@ -15,11 +15,13 @@ data Generator = Generator
 
 type Result g a = StateT g (Either String) a
 
+type M a = Result Generator a
+
 -- fixme!! I am incorrect!!!!!!
 pSucc :: Ident -> Ident
 pSucc _ = XH
 
-genSym :: Typ -> State Generator Ident
+genSym :: Typ -> M Ident
 genSym ty = do
   g <- get
   let fresh = gen_next g
@@ -29,6 +31,19 @@ genSym ty = do
 -------------------------------------
 -- SimplExpr
 ------------------------------------
+
+dummyExpr :: Expr
+dummyExpr = EConstInt 0 typeInt32s
+
+evalSimplExpr :: Expr -> Maybe Val
+evalSimplExpr (EConstInt n _) = Just $ VInt n
+evalSimplExpr (EConstFloat n _) = Just $ VFloat n
+evalSimplExpr (EConstSingle n _) = Just $ VSingle n
+evalSimplExpr (EConstLong n _) =  Just $ VLong n
+evalSimplExpr (ECast b ty) = case evalSimplExpr b of
+  Nothing -> Nothing
+  Just v -> semCast v (typeOf b) ty ()
+evalSimplExpr _ = Nothing
 
 data SetDestination
   = SDBase Typ Typ Ident |
@@ -48,7 +63,7 @@ finish ForVal sl a = (sl, a)
 finish ForEffects sl a = (sl, a)
 finish (ForSet sd) sl a = (sl ++ doSet sd a, a)
 
-translExpr :: Destination -> CSyntax.Expr -> Result Generator ([Statement], Expr)
+translExpr :: Destination -> CSyntax.Expr -> M ([Statement], Expr)
 translExpr _ (CSyntax.ELoc {}) = throwError "" --fixme: proper error message
 translExpr dst (CSyntax.EVar x ty) = return $ finish dst [] (EVar x ty)
 translExpr dst (CSyntax.EDeref r ty) = do
@@ -246,6 +261,12 @@ translExpr dst (CSyntax.EBuiltin ef tyargs rl ty) = do
     ForEffects -> return (sl ++ [SBuiltIn Nothing ef tyargs al], dummyExpr)
 translExpr _ (CSyntax.EParen {}) = throwError "" --fixme: add proper error message.
 
+translExprList :: CSyntax.ExprList -> M ([Statement], [Expr])
+translExprList CSyntax.ENil = return ([], [])
+translExprList (CSyntax.ECons r1 rl2) = do
+  (sl1, a1) <- translExpr ForVal r1
+  (sl2, al2) <- translExprList rl2
+  return (sl1 ++ sl2, a1 : al2)
 
 
 

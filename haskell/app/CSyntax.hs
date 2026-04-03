@@ -32,6 +32,35 @@ data BinaryOperation
 
 data IncrOrDecr = Incr | Decr
 
+data ClassifyCastCases
+  = CastCasePointer |
+    CastCaseI2I IntSize Signedness |
+    CastCaseF2F |
+    CastCaseS2S |
+    CastCaseS2F |
+    CastCaseF2S |
+    CastCaseI2F Signedness |
+    CastCaseI2S Signedness |
+    CastCaseF2I IntSize Signedness |
+    CastCaseS2I IntSize Signedness |
+    CastCaseL2L |
+    CastCaseI2L Signedness |
+    CastCaseL2I IntSize Signedness |
+    CastCaseL2F Signedness |
+    CastCaseL2S Signedness |
+    CastCaseF2L Signedness |
+    CastCaseS2L Signedness |
+    CastCaseI2Bool |
+    CastCaseL2Bool |
+    CastCaseF2Bool |
+    CastCaseS2Bool |
+    CastCaseStruct Ident Ident |
+    CastCaseUnion Ident Ident |
+    CastCaseVoid |
+    CastCaseDefault
+
+-- castIntInt :: IntSize -> Signedness -> Int -> Int
+
 -----------------------------------
 -- Values
 -----------------------------------
@@ -56,11 +85,16 @@ data IntSize = I8 | I16 | I32 | IBool
 
 data FloatSize = F32 | F64
 
+data N = N0 | NPos Positive
+
 data Attr = Attr
   {
     attr_volatile :: Bool,
-    attr_alignas :: Bool
+    attr_alignas :: Maybe N
   }
+
+noAttr :: Attr
+noAttr = Attr False Nothing
 
 data Typ
   = TVoid |
@@ -74,6 +108,12 @@ data Typ
     TUnion Ident Attr 
 
 data TypeList = TNil | TCons Typ TypeList
+
+typeInt32s :: Typ
+typeInt32s = TInt I32 Signed noAttr
+
+typeBool :: Typ
+typeBool = TInt IBool Signed noAttr
 
 -------------------------------------------------
 -- CSyntax
