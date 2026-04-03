@@ -87,7 +87,7 @@ translExpr dst (CSyntax.ESeqAnd r1 r2 ty) = do
     ForVal -> do
       t <- genSym ty
       (sl2, a2) <- translExpr (ForSet (sdSeqBoolVal t ty)) r2
-      return 
+      return
         (
           sl1 ++ [makeIf a1 (makeSeq sl2) (SSet t (EConstInt 0 ty))],
           ETempVar t ty
@@ -184,9 +184,69 @@ translExpr dst (CSyntax.EAssignOp op l1 r2  tyres ty) = do
           (sl1 ++ sl2 ++ sl3 ++
             [SSet t (ECast (EBinOp op a3 a2 tyres) ty1), makeAssign a1 (ETempVar t ty1)])
           (ETempVar t ty1)
-    ForSet _ ->
-        
-      
+    ForSet _ -> do
+      t <- genSym ty1
+      return $
+        finish dst
+          (sl1 ++ sl2 ++ sl3 ++
+            [SSet t (ECast (EBinOp op a3 a2 tyres) ty1), makeAssign a1 (ETempVar t ty1)])
+          (ETempVar t ty1)
+    ForEffects ->
+      return (sl1 ++ sl2 ++ sl3 ++ [makeAssign a1 (EBinOp op a3 a2 tyres)], dummyExpr)
+translExpr dst (CSyntax.EPostIncr id' l1 ty) = do
+  let ty1 = CSyntax.typeOf l1
+  case dst of
+    ForVal -> do
+      t <- genSym ty1
+      return $
+        finish dst
+          (sl1 ++ [makeSet t a1, makeAssign a1 $ translIncrDecr id' (ETempVar t ty1) ty1])
+          (ETempVar t ty1)
+    ForSet _ -> do
+      t <-  genSym ty1
+      return $
+        finish dst
+          (sl1 ++ [makeSet t a1, makeAssign a1 $ translIncrDecr id' (ETempVar t ty1) ty1])
+          (ETempVar t ty1)
+    ForEffects -> do
+      (sl2, a2) <- translValOf ty1 a1
+      return (sl1 ++ sl2 ++ [makeAssign a1 $ translIncrDecr id' a2 ty1], dummyExpr)
+translExpr dst (CSyntax.EComma r1 r2 ty) = do
+  (sl1, a1) <- translExpr ForEffects r1
+  (sl2, a2) <- translExpr dst r2
+  return (sl1 ++ sl2, a2)
+translExpr dst (CSyntax.ECall r1 rl2 ty) = do
+  (sl1, a1) <- translExpr ForVal r1
+  (sl2, al2) <- translExprList rl2
+  case dst of
+    ForVal -> do
+      t <- genSym ty
+      return $
+        finish dst
+          (sl1 ++ sl2 ++ [SCall (Just t) a1 al2])
+          (ETempVar t ty)
+    ForSet _ -> do
+      t <- genSym ty
+      return $
+        finish dst
+          (sl1 ++ sl2 ++ [SCall (Just t) a1 al2])
+          (ETempVar t ty)
+    ForEffects -> return (sl1 ++ sl2 ++ [SCall Nothing a1 al2], dummyExpr)
+translExpr dst (CSyntax.EBuiltin ef tyargs rl ty) = do
+  (sl, al) <- translExprList rl
+  case dst of
+    ForVal -> do
+      t <- genSym ty
+      return $
+        finish dst (sl ++ [SBuiltIn (Just t) ef tyargs al]) (ETempVar t ty)
+    ForSet _ -> do
+      t <- genSym ty
+      return $
+        finish dst (sl ++ [SBuiltin (Just t) ef tyargs al]) (ETempVar t ty)
+    ForEffects -> return (sl ++ [SBuiltIn Nothing ef tyargs al], dummyExpr)
+translExpr _ (CSyntax.EParen {}) = throwError "" --fixme: add proper error message.
+
+
 
 
 
